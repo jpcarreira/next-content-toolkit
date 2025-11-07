@@ -4,9 +4,13 @@ Reusable Next.js components and utilities for content-driven websites. Built to 
 
 ## 📦 Installation
 
+**Currently Private:** Install directly from GitHub
+
 ```bash
-npm install @joaocarreira/next-content-toolkit
+npm install git+https://github.com/joaocarreira/next-content-toolkit.git
 ```
+
+See [INSTALL.md](INSTALL.md) for more installation options and troubleshooting.
 
 ### Peer Dependencies
 
