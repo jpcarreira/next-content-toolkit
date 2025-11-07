@@ -75,7 +75,37 @@
   "peerDependencies": {
     "next": ">=14.0.0",
     "react": ">=18.0.0",
-    "react-dom": ">=18.0.0"
+    "react-dom": ">=18.0.0",
+    "mongodb": "^6.0.0",
+    "resend": "^6.0.0",
+    "contentlayer2": "^0.5.0",
+    "next-contentlayer2": "^0.5.0",
+    "reading-time": "^1.5.0",
+    "date-fns": "^4.0.0",
+    "lucide-react": "^0.400.0"
+  },
+  "peerDependenciesMeta": {
+    "mongodb": {
+      "optional": true
+    },
+    "resend": {
+      "optional": true
+    },
+    "contentlayer2": {
+      "optional": true
+    },
+    "next-contentlayer2": {
+      "optional": true
+    },
+    "reading-time": {
+      "optional": true
+    },
+    "date-fns": {
+      "optional": true
+    },
+    "lucide-react": {
+      "optional": true
+    }
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -87,14 +117,5 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19"
-  },
-  "optionalDependencies": {
-    "mongodb": "^6.18.0",
-    "resend": "^6.0.0",
-    "contentlayer2": "^0.5.8",
-    "next-contentlayer2": "^0.5.8",
-    "reading-time": "^1.5.0",
-    "date-fns": "^4.1.0",
-    "lucide-react": "^0.454.0"
   }
 }
