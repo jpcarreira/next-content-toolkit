@@ -1,5 +1,5 @@
 {
-  "name": "@joaocarreira/next-content-toolkit",
+  "name": "@jpcarreira/next-content-toolkit",
   "version": "0.1.0",
   "description": "Reusable Next.js components and utilities for content-driven websites",
   "main": "./dist/index.js",
