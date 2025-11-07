@@ -117,7 +117,7 @@ export const defaultMdxComponents = {
  * @param code - Compiled MDX code from ContentLayer
  * @param components - Custom components to override defaults
  */
-export default function Mdx({
+export function Mdx({
   code,
   components = {},
 }: {
@@ -129,3 +129,5 @@ export default function Mdx({
     <MDXComponent components={{ ...defaultMdxComponents, ...components }} />
   );
 }
+
+export default Mdx;
