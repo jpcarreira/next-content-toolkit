@@ -1,0 +1,96 @@
+{
+  "name": "@joaocarreira/next-content-toolkit",
+  "version": "0.1.0",
+  "description": "Reusable Next.js components and utilities for content-driven websites",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./database": {
+      "types": "./dist/database/index.d.ts",
+      "import": "./dist/database/index.mjs",
+      "require": "./dist/database/index.js"
+    },
+    "./analytics": {
+      "types": "./dist/analytics/index.d.ts",
+      "import": "./dist/analytics/index.mjs",
+      "require": "./dist/analytics/index.js"
+    },
+    "./forms": {
+      "types": "./dist/forms/index.d.ts",
+      "import": "./dist/forms/index.mjs",
+      "require": "./dist/forms/index.js"
+    },
+    "./content": {
+      "types": "./dist/content/index.d.ts",
+      "import": "./dist/content/index.mjs",
+      "require": "./dist/content/index.js"
+    },
+    "./ui": {
+      "types": "./dist/ui/index.d.ts",
+      "import": "./dist/ui/index.mjs",
+      "require": "./dist/ui/index.js"
+    },
+    "./utils": {
+      "types": "./dist/utils/index.d.ts",
+      "import": "./dist/utils/index.mjs",
+      "require": "./dist/utils/index.js"
+    },
+    "./ads": {
+      "types": "./dist/ads/index.d.ts",
+      "import": "./dist/ads/index.mjs",
+      "require": "./dist/ads/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "nextjs",
+    "react",
+    "content",
+    "mdx",
+    "mongodb",
+    "analytics",
+    "newsletter"
+  ],
+  "author": "João Carreira",
+  "license": "MIT",
+  "peerDependencies": {
+    "next": ">=14.0.0",
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.5.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tsup": "^8.3.5",
+    "typescript": "^5"
+  },
+  "optionalDependencies": {
+    "mongodb": "^6.18.0",
+    "resend": "^6.0.0",
+    "contentlayer2": "^0.5.8",
+    "next-contentlayer2": "^0.5.8",
+    "reading-time": "^1.5.0",
+    "date-fns": "^4.1.0",
+    "lucide-react": "^0.454.0"
+  }
+}
