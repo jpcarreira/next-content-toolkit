@@ -4,3 +4,4 @@ export * from './youtube-embed';
 export * from './types';
 export * from './content-block';
 export * from './key-points';
+export * from './in-content-ad';
