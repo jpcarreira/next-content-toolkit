@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import * as React from 'react';
 import type { CountdownTimerProps, TimeRemaining } from './types';
 
 /**
@@ -13,13 +13,13 @@ export function CountdownTimer({
   icon,
   className = '',
 }: CountdownTimerProps) {
-  const [timeRemaining, setTimeRemaining] = useState<TimeRemaining>({
+  const [timeRemaining, setTimeRemaining] = React.useState<TimeRemaining>({
     days: 0,
     hours: 0,
     minutes: 0,
     seconds: 0,
   });
-  const [hasReached, setHasReached] = useState(false);
+  const [hasReached, setHasReached] = React.useState(false);
 
   const calculateTimeRemaining = (target: Date): TimeRemaining => {
     const now = new Date().getTime();
@@ -48,7 +48,7 @@ export function CountdownTimer({
     return Math.floor(difference / (1000 * 60 * 60 * 24));
   };
 
-  useEffect(() => {
+  React.useEffect(() => {
     const updateCountdown = () => {
       setTimeRemaining(calculateTimeRemaining(targetDate));
     };
