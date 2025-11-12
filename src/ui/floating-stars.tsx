@@ -61,8 +61,8 @@ export function FloatingStars({ count = 20, className = '' }: FloatingStarsProps
       top: `${Math.random() * 100}%`,
       delay: Math.random() * 10,
       duration: 10 + Math.random() * 20,
-      opacity: 0.2 + Math.random() * 0.4,
-      size: 1 + Math.random() * 2,
+      opacity: 0.4 + Math.random() * 0.6, // Increased from 0.2-0.6 to 0.4-1.0
+      size: 2 + Math.random() * 2, // Increased from 1-3px to 2-4px
     }));
   }, [count, mounted]);
 
