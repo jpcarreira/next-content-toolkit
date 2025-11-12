@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 interface Star {
   id: number;
@@ -44,8 +44,17 @@ interface FloatingStarsProps {
  * ```
  */
 export function FloatingStars({ count = 20, className = '' }: FloatingStarsProps) {
+  const [mounted, setMounted] = useState(false);
+
+  // Only generate stars after component mounts to avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Generate stars on mount to ensure consistent rendering
   const stars = useMemo<Star[]>(() => {
+    if (!mounted) return [];
+
     return Array.from({ length: count }, (_, i) => ({
       id: i,
       left: `${Math.random() * 100}%`,
@@ -55,7 +64,12 @@ export function FloatingStars({ count = 20, className = '' }: FloatingStarsProps
       opacity: 0.2 + Math.random() * 0.4,
       size: 1 + Math.random() * 2,
     }));
-  }, [count]);
+  }, [count, mounted]);
+
+  // Don't render anything until mounted
+  if (!mounted) {
+    return <div className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`} />;
+  }
 
   return (
     <div className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}>
