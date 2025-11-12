@@ -12,7 +12,9 @@ export default defineConfig({
     'ads/index': 'src/ads/index.ts',
   },
   format: ['cjs', 'esm'],
-  dts: true,
+  dts: {
+    resolve: true,
+  },
   splitting: false,
   sourcemap: true,
   clean: true,
