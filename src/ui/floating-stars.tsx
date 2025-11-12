@@ -10,6 +10,8 @@ interface Star {
   duration: number;
   opacity: number;
   size: number;
+  isGalaxy?: boolean;
+  rotation?: number;
 }
 
 interface FloatingStarsProps {
@@ -51,19 +53,26 @@ export function FloatingStars({ count = 20, className = '' }: FloatingStarsProps
     setMounted(true);
   }, []);
 
-  // Generate stars on mount to ensure consistent rendering
+  // Generate stars and galaxies on mount to ensure consistent rendering
   const stars = useMemo<Star[]>(() => {
     if (!mounted) return [];
 
-    const generatedStars = Array.from({ length: count }, (_, i) => ({
-      id: i,
-      left: `${Math.random() * 100}%`,
-      top: `${Math.random() * 100}%`,
-      delay: Math.random() * 10,
-      duration: 10 + Math.random() * 20,
-      opacity: 0.3 + Math.random() * 0.4, // Subtle: 0.3-0.7
-      size: 1 + Math.random() * 2, // Small: 1-3px
-    }));
+    const generatedStars = Array.from({ length: count }, (_, i) => {
+      // Every 15th element is a galaxy
+      const isGalaxy = i % 15 === 0;
+
+      return {
+        id: i,
+        left: `${Math.random() * 100}%`,
+        top: `${Math.random() * 100}%`,
+        delay: Math.random() * 10,
+        duration: 10 + Math.random() * 20,
+        opacity: isGalaxy ? 0.15 + Math.random() * 0.25 : 0.3 + Math.random() * 0.4, // Galaxies dimmer: 0.15-0.4, stars: 0.3-0.7
+        size: isGalaxy ? 20 + Math.random() * 30 : 1 + Math.random() * 2, // Galaxies large: 20-50px, stars: 1-3px
+        isGalaxy,
+        rotation: isGalaxy ? Math.random() * 360 : 0,
+      };
+    });
 
     return generatedStars;
   }, [count, mounted]);
@@ -75,22 +84,60 @@ export function FloatingStars({ count = 20, className = '' }: FloatingStarsProps
 
   return (
     <div className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}>
-      {stars.map((star) => (
-        <div
-          key={star.id}
-          className="absolute rounded-full bg-white"
-          style={{
-            left: star.left,
-            top: star.top,
-            width: `${star.size}px`,
-            height: `${star.size}px`,
-            opacity: star.opacity,
-            animation: `floatStar ${star.duration}s ease-in-out infinite`,
-            animationDelay: `${star.delay}s`,
-            boxShadow: `0 0 ${star.size}px rgba(255, 255, 255, 0.5)`,
-          }}
-        />
-      ))}
+      {stars.map((star) => {
+        if (star.isGalaxy) {
+          return (
+            <div
+              key={star.id}
+              className="absolute"
+              style={{
+                left: star.left,
+                top: star.top,
+                width: `${star.size}px`,
+                height: `${star.size}px`,
+                opacity: star.opacity,
+                animation: `floatStar ${star.duration}s ease-in-out infinite`,
+                animationDelay: `${star.delay}s`,
+                transform: `rotate(${star.rotation}deg)`,
+              }}
+            >
+              {/* Spiral galaxy effect using radial gradients */}
+              <div
+                className="absolute inset-0 rounded-full"
+                style={{
+                  background: `radial-gradient(ellipse at 30% 30%, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.3) 25%, rgba(255, 255, 255, 0.1) 50%, transparent 70%)`,
+                  filter: 'blur(2px)',
+                }}
+              />
+              <div
+                className="absolute inset-0 rounded-full"
+                style={{
+                  background: `radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(255, 255, 255, 0.2) 40%, transparent 60%)`,
+                  transform: 'rotate(45deg)',
+                  filter: 'blur(1px)',
+                }}
+              />
+            </div>
+          );
+        }
+
+        return (
+          <div
+            key={star.id}
+            className="absolute rounded-full bg-white"
+            style={{
+              left: star.left,
+              top: star.top,
+              width: `${star.size}px`,
+              height: `${star.size}px`,
+              opacity: star.opacity,
+              animation: `floatStar ${star.duration}s ease-in-out infinite`,
+              animationDelay: `${star.delay}s`,
+              boxShadow: `0 0 ${star.size}px rgba(255, 255, 255, 0.5)`,
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
