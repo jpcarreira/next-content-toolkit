@@ -61,11 +61,10 @@ export function FloatingStars({ count = 20, className = '' }: FloatingStarsProps
       top: `${Math.random() * 100}%`,
       delay: Math.random() * 10,
       duration: 10 + Math.random() * 20,
-      opacity: 0.6 + Math.random() * 0.4, // Very bright: 0.6-1.0
-      size: 3 + Math.random() * 3, // Much bigger: 3-6px
+      opacity: 0.3 + Math.random() * 0.4, // Subtle: 0.3-0.7
+      size: 1 + Math.random() * 2, // Small: 1-3px
     }));
 
-    console.log(`FloatingStars: Generated ${generatedStars.length} stars`, generatedStars[0]);
     return generatedStars;
   }, [count, mounted]);
 
@@ -88,7 +87,7 @@ export function FloatingStars({ count = 20, className = '' }: FloatingStarsProps
             opacity: star.opacity,
             animation: `floatStar ${star.duration}s ease-in-out infinite`,
             animationDelay: `${star.delay}s`,
-            boxShadow: `0 0 ${star.size * 2}px rgba(255, 255, 255, 0.8)`,
+            boxShadow: `0 0 ${star.size}px rgba(255, 255, 255, 0.5)`,
           }}
         />
       ))}
