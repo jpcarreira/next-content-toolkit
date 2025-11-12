@@ -4,3 +4,4 @@ export * from './fade-in';
 export * from './use-in-view';
 export * from './floating-stars';
 export * from './flip-number';
+export * from './constellation-background';
