@@ -55,7 +55,7 @@ export function FloatingStars({ count = 20, className = '' }: FloatingStarsProps
   const stars = useMemo<Star[]>(() => {
     if (!mounted) return [];
 
-    return Array.from({ length: count }, (_, i) => ({
+    const generatedStars = Array.from({ length: count }, (_, i) => ({
       id: i,
       left: `${Math.random() * 100}%`,
       top: `${Math.random() * 100}%`,
@@ -64,6 +64,9 @@ export function FloatingStars({ count = 20, className = '' }: FloatingStarsProps
       opacity: 0.6 + Math.random() * 0.4, // Very bright: 0.6-1.0
       size: 3 + Math.random() * 3, // Much bigger: 3-6px
     }));
+
+    console.log(`FloatingStars: Generated ${generatedStars.length} stars`, generatedStars[0]);
+    return generatedStars;
   }, [count, mounted]);
 
   // Don't render anything until mounted
