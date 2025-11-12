@@ -94,27 +94,52 @@ export function FloatingStars({ count = 20, className = '' }: FloatingStarsProps
                 left: star.left,
                 top: star.top,
                 width: `${star.size}px`,
-                height: `${star.size}px`,
+                height: `${star.size * 0.6}px`, // Make it elliptical
                 opacity: star.opacity,
                 animation: `floatStar ${star.duration}s ease-in-out infinite`,
                 animationDelay: `${star.delay}s`,
                 transform: `rotate(${star.rotation}deg)`,
               }}
             >
-              {/* Spiral galaxy effect using radial gradients */}
+              {/* Bright core */}
               <div
-                className="absolute inset-0 rounded-full"
+                className="absolute"
                 style={{
-                  background: `radial-gradient(ellipse at 30% 30%, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.3) 25%, rgba(255, 255, 255, 0.1) 50%, transparent 70%)`,
+                  left: '50%',
+                  top: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: '20%',
+                  height: '30%',
+                  background: 'rgba(255, 255, 255, 0.8)',
+                  borderRadius: '50%',
                   filter: 'blur(2px)',
                 }}
               />
+              {/* Spiral arms */}
               <div
-                className="absolute inset-0 rounded-full"
+                className="absolute inset-0"
                 style={{
-                  background: `radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(255, 255, 255, 0.2) 40%, transparent 60%)`,
-                  transform: 'rotate(45deg)',
-                  filter: 'blur(1px)',
+                  background: `
+                    radial-gradient(ellipse at 50% 50%,
+                      transparent 10%,
+                      rgba(255, 255, 255, 0.15) 15%,
+                      transparent 25%,
+                      rgba(255, 255, 255, 0.1) 35%,
+                      transparent 50%,
+                      rgba(255, 255, 255, 0.05) 60%,
+                      transparent 80%
+                    )
+                  `,
+                  filter: 'blur(3px)',
+                }}
+              />
+              {/* Outer diffuse glow */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: 'radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, 0.05) 0%, transparent 70%)',
+                  filter: 'blur(6px)',
+                  transform: 'scale(1.2)',
                 }}
               />
             </div>
