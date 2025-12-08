@@ -1,6 +1,5 @@
 {
-  "name": "@jpcarreira/next-content-toolkit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Reusable Next.js components and utilities for content-driven websites",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -50,16 +49,16 @@
   "files": [
     "dist",
     "src",
+    "scripts",
     "tsup.config.ts",
     "tsconfig.json",
     "README.md"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node scripts/fix-dts.mjs",
     "dev": "tsup --watch",
     "lint": "tsc --noEmit",
-    "prepublishOnly": "npm run build",
-    "postinstall": "npm run build"
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "nextjs",
@@ -108,7 +107,6 @@
     }
   },
   "dependencies": {
-    "@jpcarreira/next-content-toolkit": "github:jpcarreira/next-content-toolkit",
     "clsx": "^2.1.1",
     "tailwind-merge": "^2.5.5",
     "tsup": "^8.3.5",
@@ -117,6 +115,8 @@
   "devDependencies": {
     "@types/node": "^22",
     "@types/react": "^19",
-    "@types/react-dom": "^19"
-  }
+    "@types/react-dom": "^19",
+    "glob": "^13.0.0"
+  },
+  "name": "@jpcarreira/next-content-toolkit"
 }

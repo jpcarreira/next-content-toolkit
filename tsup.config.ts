@@ -1,16 +1,12 @@
 import { defineConfig } from 'tsup';
+import { glob } from 'glob';
+
+const entry = await glob('src/**/*.ts', {
+  ignore: ['**/*.d.ts', '**/*.test.ts', '**/*.spec.ts']
+});
 
 export default defineConfig({
-  entry: {
-    index: 'src/index.ts',
-    'database/index': 'src/database/index.ts',
-    'analytics/index': 'src/analytics/index.ts',
-    'forms/index': 'src/forms/index.ts',
-    'content/index': 'src/content/index.ts',
-    'ui/index': 'src/ui/index.ts',
-    'utils/index': 'src/utils/index.ts',
-    'ads/index': 'src/ads/index.ts',
-  },
+  entry,
   format: ['cjs', 'esm'],
   dts: true,
   splitting: false,

@@ -1,0 +1,1388 @@
+'use strict';
+
+var clsx = require('clsx');
+var tailwindMerge = require('tailwind-merge');
+var mongodb = require('mongodb');
+var react = require('react');
+var Link = require('next/link');
+var Image = require('next/image');
+var hooks = require('next-contentlayer2/hooks');
+var jsxRuntime = require('react/jsx-runtime');
+
+function _interopDefault (e) { return e && e.__esModule ? e : { default: e }; }
+
+var Link__default = /*#__PURE__*/_interopDefault(Link);
+var Image__default = /*#__PURE__*/_interopDefault(Image);
+
+// src/utils/cn.ts
+function cn(...inputs) {
+  return tailwindMerge.twMerge(clsx.clsx(inputs));
+}
+
+// src/utils/smooth-scroll.ts
+var handleSmoothScroll = (e, targetId) => {
+  e.preventDefault();
+  const element = document.getElementById(targetId);
+  if (element) {
+    element.scrollIntoView({ behavior: "smooth" });
+  }
+};
+var scrollToTop = () => {
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+// src/utils/date.ts
+function formatDate(date, options = {
+  year: "numeric",
+  month: "long",
+  day: "numeric"
+}) {
+  const dateObj = typeof date === "string" ? new Date(date) : date;
+  return dateObj.toLocaleDateString("en-US", options);
+}
+function formatDateShort(date) {
+  return formatDate(date, {
+    year: "numeric",
+    month: "short",
+    day: "numeric"
+  });
+}
+function getRelativeTime(date) {
+  const dateObj = typeof date === "string" ? new Date(date) : date;
+  const now = /* @__PURE__ */ new Date();
+  const diffInMs = now.getTime() - dateObj.getTime();
+  const diffInDays = Math.floor(diffInMs / (1e3 * 60 * 60 * 24));
+  if (diffInDays === 0) return "Today";
+  if (diffInDays === 1) return "Yesterday";
+  if (diffInDays < 7) return `${diffInDays} days ago`;
+  if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
+  if (diffInDays < 365) return `${Math.floor(diffInDays / 30)} months ago`;
+  return `${Math.floor(diffInDays / 365)} years ago`;
+}
+var cachedClient = null;
+var cachedDb = null;
+async function connectToDatabase(options = {}) {
+  const MONGODB_URI = options.uri || process.env.MONGODB_URI;
+  const MONGODB_DB = options.dbName || process.env.MONGODB_DB || "database";
+  if (!MONGODB_URI) {
+    throw new Error("Please define the MONGODB_URI environment variable");
+  }
+  if (cachedClient && cachedDb) {
+    try {
+      await cachedClient.db().admin().ping();
+      return { client: cachedClient, db: cachedDb };
+    } catch (error) {
+      console.log("Cached MongoDB connection is dead, reconnecting...");
+      cachedClient = null;
+      cachedDb = null;
+    }
+  }
+  console.log("Connecting to MongoDB...");
+  const client = new mongodb.MongoClient(MONGODB_URI, {
+    serverSelectionTimeoutMS: options.serverSelectionTimeoutMS || 5e3,
+    family: options.family || 4
+  });
+  try {
+    await client.connect();
+    const db = client.db(MONGODB_DB);
+    cachedClient = client;
+    cachedDb = db;
+    console.log("Successfully connected to MongoDB");
+    return { client, db };
+  } catch (error) {
+    console.error("Failed to connect to MongoDB:", error);
+    throw new Error(
+      `MongoDB connection failed: ${error instanceof Error ? error.message : "Unknown error"}`
+    );
+  }
+}
+async function closeConnection() {
+  if (cachedClient) {
+    await cachedClient.close();
+    cachedClient = null;
+    cachedDb = null;
+    console.log("MongoDB connection closed");
+  }
+}
+function createMongoDBConnection(config) {
+  return () => connectToDatabase(config);
+}
+
+// src/database/newsletter.ts
+var NewsletterService = class {
+  constructor(config = {}) {
+    this.collectionName = config.collectionName || "newsletter_subscribers";
+    this.dbName = config.dbName;
+  }
+  /**
+   * Subscribe a new email to the newsletter
+   */
+  async subscribe(email, metadata) {
+    if (!email) {
+      throw new Error("Email is required");
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new Error("Invalid email format");
+    }
+    const { db } = await connectToDatabase({ dbName: this.dbName });
+    const collection = db.collection(this.collectionName);
+    const existingSubscriber = await collection.findOne({ email });
+    if (existingSubscriber) {
+      if (!existingSubscriber.active) {
+        await collection.updateOne(
+          { email },
+          {
+            $set: {
+              active: true,
+              resubscribedAt: /* @__PURE__ */ new Date()
+            }
+          }
+        );
+        return {
+          id: existingSubscriber._id?.toString() || "",
+          message: "Successfully resubscribed to newsletter"
+        };
+      }
+      throw new Error("Email already subscribed");
+    }
+    const result = await collection.insertOne({
+      email,
+      subscribedAt: /* @__PURE__ */ new Date(),
+      active: true,
+      source: "website",
+      metadata
+    });
+    return {
+      id: result.insertedId.toString(),
+      message: "Successfully subscribed to newsletter"
+    };
+  }
+  /**
+   * Unsubscribe an email from the newsletter (soft delete)
+   */
+  async unsubscribe(email) {
+    if (!email) {
+      throw new Error("Email is required");
+    }
+    const { db } = await connectToDatabase({ dbName: this.dbName });
+    const collection = db.collection(this.collectionName);
+    const result = await collection.updateOne(
+      { email },
+      {
+        $set: {
+          active: false,
+          unsubscribedAt: /* @__PURE__ */ new Date()
+        }
+      }
+    );
+    if (result.matchedCount === 0) {
+      throw new Error("Email not found");
+    }
+    return { message: "Successfully unsubscribed from newsletter" };
+  }
+  /**
+   * Get all active subscribers
+   */
+  async getActiveSubscribers() {
+    const { db } = await connectToDatabase({ dbName: this.dbName });
+    const collection = db.collection(this.collectionName);
+    return collection.find({ active: true }).toArray();
+  }
+  /**
+   * Get subscriber count
+   */
+  async getSubscriberCount() {
+    const { db } = await connectToDatabase({ dbName: this.dbName });
+    const collection = db.collection(this.collectionName);
+    return collection.countDocuments({ active: true });
+  }
+};
+function createNewsletterService(config) {
+  return new NewsletterService(config);
+}
+
+// src/analytics/use-analytics.ts
+var useAnalytics = () => {
+  const track = (event, data) => {
+    if (typeof window !== "undefined" && window.sa_event) {
+      window.sa_event(event, data);
+    }
+  };
+  return { track };
+};
+var defaultMdxComponents = {
+  // Typography
+  h1: (props) => /* @__PURE__ */ jsxRuntime.jsx("h1", { className: "text-3xl font-bold text-white mb-6 mt-8", ...props }),
+  h2: (props) => /* @__PURE__ */ jsxRuntime.jsx("h2", { className: "text-2xl font-bold text-white mb-4 mt-6", ...props }),
+  h3: (props) => /* @__PURE__ */ jsxRuntime.jsx("h3", { className: "text-xl font-semibold text-white mb-3 mt-4", ...props }),
+  p: (props) => /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-slate-300 leading-relaxed mb-4", ...props }),
+  // Lists
+  ul: (props) => /* @__PURE__ */ jsxRuntime.jsx("ul", { className: "space-y-2 text-slate-300 mb-4 list-disc pl-6", ...props }),
+  ol: (props) => /* @__PURE__ */ jsxRuntime.jsx(
+    "ol",
+    {
+      className: "space-y-2 text-slate-300 mb-4 list-decimal pl-6",
+      ...props
+    }
+  ),
+  li: (props) => /* @__PURE__ */ jsxRuntime.jsx("li", { className: "leading-relaxed", ...props }),
+  // Links
+  a: (props) => /* @__PURE__ */ jsxRuntime.jsx(
+    Link__default.default,
+    {
+      ...props,
+      href: props.href || "#",
+      className: "text-[#00E0FF] underline decoration-dotted hover:opacity-80 transition-opacity"
+    }
+  ),
+  // Images
+  img: (props) => {
+    const { src } = props;
+    if (!src || typeof src !== "string") return null;
+    const isAbsolute = src.startsWith("http");
+    if (isAbsolute) {
+      return /* @__PURE__ */ jsxRuntime.jsx("img", { ...props, className: "rounded-lg my-6 w-full", loading: "lazy" });
+    }
+    return /* @__PURE__ */ jsxRuntime.jsx(
+      Image__default.default,
+      {
+        src,
+        alt: props.alt || "",
+        width: 800,
+        height: 400,
+        className: "rounded-lg my-6 w-full h-auto",
+        loading: "lazy"
+      }
+    );
+  },
+  // Blockquote
+  blockquote: (props) => /* @__PURE__ */ jsxRuntime.jsx(
+    "blockquote",
+    {
+      className: "border-l-4 border-[#00E0FF] pl-6 my-6 text-slate-400 italic",
+      ...props
+    }
+  ),
+  // Code blocks
+  pre: (props) => /* @__PURE__ */ jsxRuntime.jsx(
+    "pre",
+    {
+      className: "bg-slate-800/50 rounded-lg p-4 overflow-x-auto mb-4",
+      ...props
+    }
+  ),
+  code: (props) => /* @__PURE__ */ jsxRuntime.jsx(
+    "code",
+    {
+      className: "bg-slate-800/50 px-1.5 py-0.5 rounded text-sm",
+      ...props
+    }
+  ),
+  // Tables
+  table: (props) => /* @__PURE__ */ jsxRuntime.jsx("div", { className: "overflow-x-auto mb-6", children: /* @__PURE__ */ jsxRuntime.jsx("table", { className: "min-w-full divide-y divide-slate-700", ...props }) }),
+  thead: (props) => /* @__PURE__ */ jsxRuntime.jsx("thead", { className: "bg-slate-800/30", ...props }),
+  th: (props) => /* @__PURE__ */ jsxRuntime.jsx("th", { className: "px-4 py-2 text-left text-white font-semibold", ...props }),
+  td: (props) => /* @__PURE__ */ jsxRuntime.jsx("td", { className: "px-4 py-2 text-slate-300", ...props }),
+  // Divider
+  hr: () => /* @__PURE__ */ jsxRuntime.jsx("hr", { className: "border-slate-700 my-8" })
+};
+function Mdx({
+  code,
+  components = {}
+}) {
+  const MDXComponent = hooks.useMDXComponent(code);
+  return /* @__PURE__ */ jsxRuntime.jsx(MDXComponent, { components: { ...defaultMdxComponents, ...components } });
+}
+function XEmbed({
+  id,
+  theme = "dark",
+  conversation = "none",
+  align = "center"
+}) {
+  const embedContainerRef = react.useRef(null);
+  const [isLoaded, setIsLoaded] = react.useState(false);
+  const [hasError, setHasError] = react.useState(false);
+  const [isVisible, setIsVisible] = react.useState(false);
+  const observerRef = react.useRef(null);
+  const getTweetId = (input) => {
+    if (input.includes("twitter.com") || input.includes("x.com")) {
+      const match = input.match(/status\/(\d+)/);
+      return match ? match[1] : input;
+    }
+    return input;
+  };
+  const tweetId = getTweetId(id);
+  const tweetUrl = `https://twitter.com/x/status/${tweetId}`;
+  react.useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setIsVisible(true);
+            observer.disconnect();
+          }
+        });
+      },
+      { rootMargin: "100px" }
+    );
+    if (observerRef.current) {
+      observer.observe(observerRef.current);
+    }
+    return () => observer.disconnect();
+  }, []);
+  react.useEffect(() => {
+    if (!isVisible) return;
+    const fetchTweet = async () => {
+      try {
+        const params = new URLSearchParams({
+          url: tweetUrl,
+          theme,
+          align,
+          dnt: "true"
+        });
+        if (conversation === "none") {
+          params.append("conversation", "none");
+        }
+        const response = await fetch(
+          `https://publish.twitter.com/oembed?${params.toString()}`
+        );
+        if (!response.ok) {
+          throw new Error("Tweet not found");
+        }
+        const data = await response.json();
+        if (data.html) {
+          setTimeout(() => {
+            if (embedContainerRef.current) {
+              embedContainerRef.current.innerHTML = data.html;
+              if (!window.twttr) {
+                const script = document.createElement("script");
+                script.src = "https://platform.twitter.com/widgets.js";
+                script.async = true;
+                script.onload = () => {
+                  if (window.twttr?.widgets && embedContainerRef.current) {
+                    window.twttr.widgets.load(embedContainerRef.current);
+                  }
+                };
+                document.body.appendChild(script);
+              } else if (window.twttr.widgets && embedContainerRef.current) {
+                window.twttr.widgets.load(embedContainerRef.current);
+              }
+              setIsLoaded(true);
+            }
+          }, 0);
+        } else {
+          throw new Error("No HTML returned");
+        }
+      } catch (error) {
+        console.error("Failed to load tweet:", error);
+        setHasError(true);
+      }
+    };
+    fetchTweet();
+  }, [isVisible, tweetUrl, theme, conversation, align]);
+  const alignmentClass = {
+    left: "justify-start",
+    center: "justify-center",
+    right: "justify-end"
+  }[align];
+  if (hasError) {
+    return /* @__PURE__ */ jsxRuntime.jsx("div", { className: `my-6 flex ${alignmentClass}`, children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "w-full max-w-[550px] bg-slate-800/30 border border-red-500/30 rounded-2xl p-6", children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "flex items-start gap-3", children: [
+      /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-red-500 mt-1", children: /* @__PURE__ */ jsxRuntime.jsxs(
+        "svg",
+        {
+          width: "20",
+          height: "20",
+          viewBox: "0 0 24 24",
+          fill: "none",
+          stroke: "currentColor",
+          strokeWidth: "2",
+          children: [
+            /* @__PURE__ */ jsxRuntime.jsx("circle", { cx: "12", cy: "12", r: "10" }),
+            /* @__PURE__ */ jsxRuntime.jsx("line", { x1: "12", y1: "8", x2: "12", y2: "12" }),
+            /* @__PURE__ */ jsxRuntime.jsx("line", { x1: "12", y1: "16", x2: "12.01", y2: "16" })
+          ]
+        }
+      ) }),
+      /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "flex-1", children: [
+        /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-slate-300 mb-2", children: "This post is no longer available or couldn't be loaded." }),
+        /* @__PURE__ */ jsxRuntime.jsx(
+          "a",
+          {
+            href: tweetUrl,
+            target: "_blank",
+            rel: "noopener noreferrer",
+            className: "text-[#00E0FF] text-sm hover:underline",
+            children: "View on X \u2192"
+          }
+        )
+      ] })
+    ] }) }) });
+  }
+  return /* @__PURE__ */ jsxRuntime.jsxs("div", { className: `my-6 flex ${alignmentClass}`, ref: observerRef, children: [
+    !isLoaded && /* @__PURE__ */ jsxRuntime.jsx("div", { className: "w-full max-w-[550px] bg-slate-800/30 border border-slate-700 rounded-2xl p-6 animate-pulse", children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "flex items-start gap-3", children: [
+      /* @__PURE__ */ jsxRuntime.jsx("div", { className: "w-10 h-10 bg-slate-700 rounded-full" }),
+      /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "flex-1 space-y-3", children: [
+        /* @__PURE__ */ jsxRuntime.jsx("div", { className: "h-4 bg-slate-700 rounded w-1/3" }),
+        /* @__PURE__ */ jsxRuntime.jsx("div", { className: "h-4 bg-slate-700 rounded w-full" }),
+        /* @__PURE__ */ jsxRuntime.jsx("div", { className: "h-4 bg-slate-700 rounded w-2/3" })
+      ] })
+    ] }) }),
+    /* @__PURE__ */ jsxRuntime.jsx(
+      "div",
+      {
+        ref: embedContainerRef,
+        className: `w-full max-w-[550px] ${!isLoaded ? "hidden" : ""}`
+      }
+    )
+  ] });
+}
+function YouTubeEmbed({
+  videoId,
+  title = "YouTube video",
+  startTime,
+  aspectRatio = "16:9"
+}) {
+  const containerRef = react.useRef(null);
+  const [isVisible, setIsVisible] = react.useState(false);
+  react.useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setIsVisible(true);
+            observer.disconnect();
+          }
+        });
+      },
+      { rootMargin: "100px" }
+    );
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+    return () => observer.disconnect();
+  }, []);
+  const buildYouTubeUrl = () => {
+    const baseUrl = `https://www.youtube-nocookie.com/embed/${videoId}`;
+    const params = new URLSearchParams({
+      rel: "0",
+      modestbranding: "1",
+      ...startTime && { start: startTime.toString() }
+    });
+    return `${baseUrl}?${params.toString()}`;
+  };
+  const paddingClass = aspectRatio === "16:9" ? "pb-[56.25%]" : "pb-[75%]";
+  return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "my-8", ref: containerRef, children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "max-w-4xl mx-auto", children: [
+    /* @__PURE__ */ jsxRuntime.jsx(
+      "div",
+      {
+        className: `relative ${paddingClass} bg-slate-800/30 border border-[#00E0FF]/20 rounded-xl overflow-hidden`,
+        children: !isVisible ? /* @__PURE__ */ jsxRuntime.jsx("div", { className: "absolute inset-0 flex items-center justify-center", children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "text-center", children: [
+          /* @__PURE__ */ jsxRuntime.jsx("div", { className: "w-16 h-16 mx-auto mb-4 bg-slate-700 rounded-full flex items-center justify-center", children: /* @__PURE__ */ jsxRuntime.jsx(
+            "svg",
+            {
+              className: "w-8 h-8 text-white",
+              fill: "currentColor",
+              viewBox: "0 0 24 24",
+              children: /* @__PURE__ */ jsxRuntime.jsx("path", { d: "M8 5v14l11-7z" })
+            }
+          ) }),
+          /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-slate-400 text-sm", children: title })
+        ] }) }) : /* @__PURE__ */ jsxRuntime.jsx(
+          "iframe",
+          {
+            className: "absolute inset-0 w-full h-full",
+            src: buildYouTubeUrl(),
+            title,
+            allow: "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture",
+            allowFullScreen: true,
+            loading: "lazy",
+            style: { border: 0 }
+          }
+        )
+      }
+    ),
+    title && title !== "YouTube video" && /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-sm text-slate-400 text-center mt-3", children: title })
+  ] }) });
+}
+function ContentBlock({ title, children }) {
+  return /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "my-8 p-6 bg-slate-800/30 border border-slate-700 rounded-xl", children: [
+    /* @__PURE__ */ jsxRuntime.jsx("h3", { className: "text-xl font-bold text-white mb-4", children: title }),
+    /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-slate-300", children })
+  ] });
+}
+function KeyPoints({ children }) {
+  return /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "my-6 p-5 bg-[#00E0FF]/10 border border-[#00E0FF]/30 rounded-lg", children: [
+    /* @__PURE__ */ jsxRuntime.jsx("h4", { className: "text-lg font-semibold text-[#00E0FF] mb-3", children: "Key Points" }),
+    /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-slate-200", children })
+  ] });
+}
+function InContentAd({ children }) {
+  if (!children) {
+    return null;
+  }
+  return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "my-8 flex justify-center", children });
+}
+function SuccessMessage({
+  title,
+  description,
+  icon
+}) {
+  return /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "text-center py-8", children: [
+    icon ? /* @__PURE__ */ jsxRuntime.jsx("div", { className: "mx-auto mb-4", children: icon }) : /* @__PURE__ */ jsxRuntime.jsx(
+      "svg",
+      {
+        className: "h-16 w-16 text-[#00E0FF] mx-auto mb-4",
+        fill: "none",
+        viewBox: "0 0 24 24",
+        stroke: "currentColor",
+        children: /* @__PURE__ */ jsxRuntime.jsx(
+          "path",
+          {
+            strokeLinecap: "round",
+            strokeLinejoin: "round",
+            strokeWidth: 2,
+            d: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+          }
+        )
+      }
+    ),
+    /* @__PURE__ */ jsxRuntime.jsx("h3", { className: "text-2xl font-bold text-white mb-2", children: title }),
+    /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-slate-300", children: description })
+  ] });
+}
+function NewsletterForm({
+  apiEndpoint = "/api/newsletter",
+  title = "Stay Updated",
+  description = "Get the latest updates directly in your inbox",
+  buttonText = "Subscribe",
+  successTitle = "Successfully Subscribed!",
+  successDescription = "Welcome aboard! You'll receive updates in your inbox.",
+  className = "",
+  onSuccess,
+  onError
+}) {
+  const [email, setEmail] = react.useState("");
+  const [isSubmitting, setIsSubmitting] = react.useState(false);
+  const [showSuccess, setShowSuccess] = react.useState(false);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        if (response.status === 409) {
+          alert("This email is already subscribed to our newsletter.");
+        } else {
+          throw new Error(data.error || "Failed to subscribe");
+        }
+      } else {
+        setShowSuccess(true);
+        onSuccess?.(email);
+        setTimeout(() => {
+          setEmail("");
+          setShowSuccess(false);
+        }, 5e3);
+      }
+    } catch (error) {
+      console.error("Error subscribing to newsletter:", error);
+      const err = error instanceof Error ? error : new Error("Failed to subscribe");
+      onError?.(err);
+      alert("Failed to subscribe. Please try again later.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  return /* @__PURE__ */ jsxRuntime.jsx(
+    "section",
+    {
+      className: `py-16 bg-gradient-to-r from-[#0B1B3B]/20 to-slate-800/20 ${className}`,
+      children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center", children: showSuccess ? /* @__PURE__ */ jsxRuntime.jsx(SuccessMessage, { title: successTitle, description: successDescription }) : /* @__PURE__ */ jsxRuntime.jsxs(jsxRuntime.Fragment, { children: [
+        /* @__PURE__ */ jsxRuntime.jsx(
+          "svg",
+          {
+            className: "h-12 w-12 text-[#00E0FF] mx-auto mb-6",
+            fill: "none",
+            viewBox: "0 0 24 24",
+            stroke: "currentColor",
+            children: /* @__PURE__ */ jsxRuntime.jsx(
+              "path",
+              {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+              }
+            )
+          }
+        ),
+        /* @__PURE__ */ jsxRuntime.jsx("h2", { className: "text-3xl md:text-4xl font-bold text-white mb-4", children: title }),
+        /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-xl text-slate-300 mb-8", children: description }),
+        /* @__PURE__ */ jsxRuntime.jsxs(
+          "form",
+          {
+            onSubmit: handleSubmit,
+            className: "flex flex-col sm:flex-row gap-4 max-w-md mx-auto",
+            children: [
+              /* @__PURE__ */ jsxRuntime.jsx(
+                "input",
+                {
+                  type: "email",
+                  placeholder: "Enter your email",
+                  value: email,
+                  onChange: (e) => setEmail(e.target.value),
+                  required: true,
+                  disabled: isSubmitting,
+                  className: "bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-400 rounded-2xl flex-1 disabled:opacity-50 px-4 py-2 border focus:border-[#00E0FF] focus:ring-[#00E0FF] focus:ring-1 outline-none"
+                }
+              ),
+              /* @__PURE__ */ jsxRuntime.jsx(
+                "button",
+                {
+                  type: "submit",
+                  disabled: isSubmitting,
+                  className: "bg-[#00E0FF] hover:bg-[#00E0FF]/90 text-slate-950 font-semibold rounded-2xl px-8 py-2 disabled:opacity-50 transition-colors",
+                  children: isSubmitting ? "Subscribing..." : buttonText
+                }
+              )
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-sm text-slate-500 mt-4", children: "No spam, unsubscribe at any time" })
+      ] }) })
+    }
+  );
+}
+function ContactModal({
+  open,
+  onOpenChange,
+  apiEndpoint = "/api/contact",
+  title = "Contact Us",
+  description = "Send us a message and we'll get back to you soon.",
+  onSuccess,
+  onError
+}) {
+  const [email, setEmail] = react.useState("");
+  const [message, setMessage] = react.useState("");
+  const [isSubmitting, setIsSubmitting] = react.useState(false);
+  const [showSuccess, setShowSuccess] = react.useState(false);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email, message })
+      });
+      if (!response.ok) {
+        throw new Error("Failed to send message");
+      }
+      setShowSuccess(true);
+      onSuccess?.({ email, message });
+      setTimeout(() => {
+        setEmail("");
+        setMessage("");
+        setShowSuccess(false);
+        onOpenChange(false);
+      }, 5e3);
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      const err = error instanceof Error ? error : new Error("Failed to send message");
+      onError?.(err);
+      alert("Failed to send message. Please try again later.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  const handleOpenChange = (newOpen) => {
+    onOpenChange(newOpen);
+  };
+  if (!open) return null;
+  return /* @__PURE__ */ jsxRuntime.jsx(
+    "div",
+    {
+      className: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm",
+      onClick: () => handleOpenChange(false),
+      children: /* @__PURE__ */ jsxRuntime.jsx(
+        "div",
+        {
+          className: "bg-slate-900/95 border border-slate-700 rounded-2xl p-6 max-w-md w-full",
+          onClick: (e) => e.stopPropagation(),
+          children: showSuccess ? /* @__PURE__ */ jsxRuntime.jsx(
+            SuccessMessage,
+            {
+              title: "Message Received!",
+              description: "Thank you for contacting us. We'll get back to you soon."
+            }
+          ) : /* @__PURE__ */ jsxRuntime.jsxs(jsxRuntime.Fragment, { children: [
+            /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "mb-6", children: [
+              /* @__PURE__ */ jsxRuntime.jsxs("h2", { className: "text-2xl font-bold text-white flex items-center gap-2 mb-2", children: [
+                /* @__PURE__ */ jsxRuntime.jsx(
+                  "svg",
+                  {
+                    className: "h-6 w-6 text-[#00E0FF]",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: /* @__PURE__ */ jsxRuntime.jsx(
+                      "path",
+                      {
+                        strokeLinecap: "round",
+                        strokeLinejoin: "round",
+                        strokeWidth: 2,
+                        d: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                      }
+                    )
+                  }
+                ),
+                title
+              ] }),
+              /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-slate-300", children: description })
+            ] }),
+            /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleSubmit, className: "space-y-6", children: [
+              /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
+                /* @__PURE__ */ jsxRuntime.jsx("label", { htmlFor: "email", className: "text-slate-200 block text-sm font-medium", children: "Email Address" }),
+                /* @__PURE__ */ jsxRuntime.jsx(
+                  "input",
+                  {
+                    id: "email",
+                    type: "email",
+                    placeholder: "your.email@example.com",
+                    value: email,
+                    onChange: (e) => setEmail(e.target.value),
+                    required: true,
+                    className: "w-full bg-slate-800/50 border border-slate-700 text-white placeholder:text-slate-400 focus:border-[#00E0FF] focus:ring-[#00E0FF]/20 focus:ring-2 outline-none rounded-lg px-4 py-2"
+                  }
+                )
+              ] }),
+              /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
+                /* @__PURE__ */ jsxRuntime.jsx("label", { htmlFor: "message", className: "text-slate-200 block text-sm font-medium", children: "Message" }),
+                /* @__PURE__ */ jsxRuntime.jsx(
+                  "textarea",
+                  {
+                    id: "message",
+                    placeholder: "Tell us what's on your mind...",
+                    value: message,
+                    onChange: (e) => setMessage(e.target.value),
+                    required: true,
+                    rows: 5,
+                    className: "w-full bg-slate-800/50 border border-slate-700 text-white placeholder:text-slate-400 focus:border-[#00E0FF] focus:ring-[#00E0FF]/20 focus:ring-2 outline-none resize-none rounded-lg px-4 py-2"
+                  }
+                )
+              ] }),
+              /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "flex gap-3 justify-end", children: [
+                /* @__PURE__ */ jsxRuntime.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: () => handleOpenChange(false),
+                    className: "text-slate-300 hover:text-white hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors",
+                    children: "Cancel"
+                  }
+                ),
+                /* @__PURE__ */ jsxRuntime.jsx(
+                  "button",
+                  {
+                    type: "submit",
+                    disabled: isSubmitting,
+                    className: "bg-[#00E0FF] hover:bg-[#00E0FF]/90 text-slate-950 font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 px-6 py-2 flex items-center gap-2",
+                    children: isSubmitting ? "Sending..." : /* @__PURE__ */ jsxRuntime.jsxs(jsxRuntime.Fragment, { children: [
+                      "Send Message",
+                      /* @__PURE__ */ jsxRuntime.jsx(
+                        "svg",
+                        {
+                          className: "h-4 w-4",
+                          fill: "none",
+                          viewBox: "0 0 24 24",
+                          stroke: "currentColor",
+                          children: /* @__PURE__ */ jsxRuntime.jsx(
+                            "path",
+                            {
+                              strokeLinecap: "round",
+                              strokeLinejoin: "round",
+                              strokeWidth: 2,
+                              d: "M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                            }
+                          )
+                        }
+                      )
+                    ] })
+                  }
+                )
+              ] })
+            ] })
+          ] })
+        }
+      )
+    }
+  );
+}
+
+// src/forms/email.ts
+function getEmailConfig() {
+  return {
+    contactEmail: process.env.CONTACT_EMAIL || "contact@example.com",
+    fromEmail: process.env.FROM_EMAIL || "noreply@example.com",
+    fromEmailAutoReply: process.env.FROM_EMAIL_AUTO_REPLY
+  };
+}
+function createEmailConfig(config) {
+  const defaults = getEmailConfig();
+  return {
+    ...defaults,
+    ...config
+  };
+}
+async function sendContactEmail(resend, config, data) {
+  return resend.emails.send({
+    from: config.fromEmail,
+    to: [config.contactEmail],
+    subject: `New Contact Form Submission from ${data.email}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1e293b;">New Contact Form Submission</h2>
+
+        <div style="background-color: #f1f5f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0 0 10px 0;"><strong>From:</strong> ${data.email}</p>
+          <p style="margin: 0;"><strong>Date:</strong> ${(/* @__PURE__ */ new Date()).toLocaleString()}</p>
+        </div>
+
+        <div style="background-color: #ffffff; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <h3 style="color: #1e293b; margin-top: 0;">Message:</h3>
+          <p style="color: #475569; line-height: 1.6; white-space: pre-wrap;">${data.message}</p>
+        </div>
+
+        <p style="color: #94a3b8; font-size: 14px; margin-top: 20px;">
+          This email was sent from your contact form.
+        </p>
+      </div>
+    `,
+    text: `New Contact Form Submission
+
+From: ${data.email}
+Date: ${(/* @__PURE__ */ new Date()).toLocaleString()}
+
+Message:
+${data.message}`
+  });
+}
+function ThemeProvider({ children }) {
+  return /* @__PURE__ */ jsxRuntime.jsx(jsxRuntime.Fragment, { children });
+}
+function useInView(options = {}) {
+  const {
+    threshold = 0.1,
+    rootMargin = "0px",
+    triggerOnce = true
+  } = options;
+  const ref = react.useRef(null);
+  const [isInView, setIsInView] = react.useState(false);
+  react.useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const inView = entry.isIntersecting;
+        if (inView) {
+          setIsInView(true);
+          if (triggerOnce) {
+            observer.unobserve(element);
+          }
+        } else if (!triggerOnce) {
+          setIsInView(false);
+        }
+      },
+      { threshold, rootMargin }
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [threshold, rootMargin, triggerOnce]);
+  return { ref, isInView };
+}
+function FadeIn({
+  children,
+  delay = 0,
+  direction = "up",
+  duration = 700,
+  className = ""
+}) {
+  const { ref, isInView } = useInView({ threshold: 0.1, triggerOnce: true });
+  const directionClasses = {
+    up: "translate-y-8",
+    down: "-translate-y-8",
+    left: "translate-x-8",
+    right: "-translate-x-8",
+    none: ""
+  };
+  const initialTransform = directionClasses[direction];
+  return /* @__PURE__ */ jsxRuntime.jsx(
+    "div",
+    {
+      ref,
+      className: `transition-all ease-out ${isInView ? "opacity-100 translate-y-0 translate-x-0" : `opacity-0 ${initialTransform}`} ${className}`,
+      style: {
+        transitionDuration: `${duration}ms`,
+        transitionDelay: `${delay}ms`
+      },
+      children
+    }
+  );
+}
+function FloatingStars({ count = 20, className = "" }) {
+  const [mounted, setMounted] = react.useState(false);
+  react.useEffect(() => {
+    setMounted(true);
+  }, []);
+  const stars = react.useMemo(() => {
+    if (!mounted) return [];
+    const generatedStars = Array.from({ length: count }, (_, i) => {
+      const isGalaxy = i % 15 === 0;
+      return {
+        id: i,
+        left: `${Math.random() * 100}%`,
+        top: `${Math.random() * 100}%`,
+        delay: Math.random() * 10,
+        duration: 10 + Math.random() * 20,
+        opacity: isGalaxy ? 0.15 + Math.random() * 0.25 : 0.3 + Math.random() * 0.4,
+        // Galaxies dimmer: 0.15-0.4, stars: 0.3-0.7
+        size: isGalaxy ? 20 + Math.random() * 30 : 1 + Math.random() * 2,
+        // Galaxies large: 20-50px, stars: 1-3px
+        isGalaxy,
+        rotation: isGalaxy ? Math.random() * 360 : 0
+      };
+    });
+    return generatedStars;
+  }, [count, mounted]);
+  if (!mounted) {
+    return /* @__PURE__ */ jsxRuntime.jsx("div", { className: `absolute inset-0 overflow-hidden pointer-events-none ${className}` });
+  }
+  return /* @__PURE__ */ jsxRuntime.jsx("div", { className: `absolute inset-0 overflow-hidden pointer-events-none ${className}`, children: stars.map((star) => {
+    if (star.isGalaxy) {
+      return /* @__PURE__ */ jsxRuntime.jsxs(
+        "div",
+        {
+          className: "absolute",
+          style: {
+            left: star.left,
+            top: star.top,
+            width: `${star.size}px`,
+            height: `${star.size * 0.6}px`,
+            // Make it elliptical
+            opacity: star.opacity,
+            animation: `floatStar ${star.duration}s ease-in-out infinite`,
+            animationDelay: `${star.delay}s`,
+            transform: `rotate(${star.rotation}deg)`
+          },
+          children: [
+            /* @__PURE__ */ jsxRuntime.jsx(
+              "div",
+              {
+                className: "absolute",
+                style: {
+                  left: "50%",
+                  top: "50%",
+                  transform: "translate(-50%, -50%)",
+                  width: "20%",
+                  height: "30%",
+                  background: "rgba(255, 255, 255, 0.8)",
+                  borderRadius: "50%",
+                  filter: "blur(2px)"
+                }
+              }
+            ),
+            /* @__PURE__ */ jsxRuntime.jsx(
+              "div",
+              {
+                className: "absolute inset-0",
+                style: {
+                  background: `
+                    radial-gradient(ellipse at 50% 50%,
+                      transparent 10%,
+                      rgba(255, 255, 255, 0.15) 15%,
+                      transparent 25%,
+                      rgba(255, 255, 255, 0.1) 35%,
+                      transparent 50%,
+                      rgba(255, 255, 255, 0.05) 60%,
+                      transparent 80%
+                    )
+                  `,
+                  filter: "blur(3px)"
+                }
+              }
+            ),
+            /* @__PURE__ */ jsxRuntime.jsx(
+              "div",
+              {
+                className: "absolute inset-0",
+                style: {
+                  background: "radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, 0.05) 0%, transparent 70%)",
+                  filter: "blur(6px)",
+                  transform: "scale(1.2)"
+                }
+              }
+            )
+          ]
+        },
+        star.id
+      );
+    }
+    return /* @__PURE__ */ jsxRuntime.jsx(
+      "div",
+      {
+        className: "absolute rounded-full bg-white",
+        style: {
+          left: star.left,
+          top: star.top,
+          width: `${star.size}px`,
+          height: `${star.size}px`,
+          opacity: star.opacity,
+          animation: `floatStar ${star.duration}s ease-in-out infinite`,
+          animationDelay: `${star.delay}s`,
+          boxShadow: `0 0 ${star.size}px rgba(255, 255, 255, 0.5)`
+        }
+      },
+      star.id
+    );
+  }) });
+}
+function FlipNumber({ value, className = "" }) {
+  const [isFlipping, setIsFlipping] = react.useState(false);
+  const [displayValue, setDisplayValue] = react.useState(value);
+  react.useEffect(() => {
+    if (value !== displayValue) {
+      setIsFlipping(true);
+      setTimeout(() => {
+        setDisplayValue(value);
+      }, 300);
+      setTimeout(() => {
+        setIsFlipping(false);
+      }, 600);
+    }
+  }, [value, displayValue]);
+  return /* @__PURE__ */ jsxRuntime.jsx("span", { className: `flip-number ${isFlipping ? "flipping" : ""} ${className}`, children: displayValue.toString().padStart(2, "0") });
+}
+function ConstellationBackground({ count = 3, className = "" }) {
+  const [mounted, setMounted] = react.useState(false);
+  const [constellations, setConstellations] = react.useState([]);
+  react.useEffect(() => {
+    setMounted(true);
+    const newConstellations = Array.from({ length: count }, () => {
+      const starCount = 4 + Math.floor(Math.random() * 4);
+      const stars = [];
+      const centerX = 20 + Math.random() * 60;
+      const centerY = 20 + Math.random() * 60;
+      for (let i = 0; i < starCount; i++) {
+        stars.push({
+          cx: centerX + (Math.random() - 0.5) * 20,
+          // Cluster around center
+          cy: centerY + (Math.random() - 0.5) * 20,
+          r: 0.3 + Math.random() * 0.4,
+          // Smaller stars: 0.3-0.7
+          opacity: 0.3 + Math.random() * 0.5,
+          delay: Math.random() * 3
+        });
+      }
+      const lines = [];
+      for (let i = 0; i < stars.length; i++) {
+        for (let j = i + 1; j < stars.length; j++) {
+          const dx = stars[j].cx - stars[i].cx;
+          const dy = stars[j].cy - stars[i].cy;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance < 12) {
+            lines.push([i, j]);
+          }
+        }
+      }
+      return { stars, lines };
+    });
+    setConstellations(newConstellations);
+  }, [count]);
+  if (!mounted) {
+    return /* @__PURE__ */ jsxRuntime.jsx("div", { className: `absolute inset-0 pointer-events-none ${className}` });
+  }
+  return /* @__PURE__ */ jsxRuntime.jsx(
+    "svg",
+    {
+      className: `absolute inset-0 w-full h-full pointer-events-none ${className}`,
+      xmlns: "http://www.w3.org/2000/svg",
+      viewBox: "0 0 100 100",
+      preserveAspectRatio: "xMidYMid slice",
+      children: constellations.map((constellation, constellationIndex) => /* @__PURE__ */ jsxRuntime.jsxs("g", { opacity: "0.6", children: [
+        constellation.lines.map(([i, j], lineIndex) => /* @__PURE__ */ jsxRuntime.jsx(
+          "line",
+          {
+            x1: constellation.stars[i].cx,
+            y1: constellation.stars[i].cy,
+            x2: constellation.stars[j].cx,
+            y2: constellation.stars[j].cy,
+            stroke: "white",
+            strokeWidth: "0.1",
+            opacity: "0.2"
+          },
+          `line-${lineIndex}`
+        )),
+        constellation.stars.map((star, starIndex) => /* @__PURE__ */ jsxRuntime.jsx(
+          "circle",
+          {
+            cx: star.cx,
+            cy: star.cy,
+            r: star.r,
+            fill: "white",
+            opacity: star.opacity,
+            style: {
+              animation: `twinkle 3s ease-in-out infinite`,
+              animationDelay: `${star.delay}s`
+            }
+          },
+          `star-${starIndex}`
+        ))
+      ] }, constellationIndex))
+    }
+  );
+}
+function AdUnit({
+  slot,
+  adType = "custom",
+  format = "auto",
+  style = { display: "block" },
+  className = "",
+  responsive = true,
+  adClient
+}) {
+  const adRef = react.useRef(null);
+  const [adsMode, setAdsMode] = react.useState("NONE");
+  react.useEffect(() => {
+    fetch("/api/ads-config").then((res) => res.json()).then((data) => setAdsMode(data.adsMode || "NONE")).catch((err) => {
+      console.error("Failed to fetch ads config:", err);
+    });
+  }, []);
+  react.useEffect(() => {
+    if (adsMode !== "SHOW_ADS") {
+      return;
+    }
+    const loadAd = () => {
+      try {
+        if (typeof window !== "undefined" && window.adsbygoogle) {
+          (window.adsbygoogle = window.adsbygoogle || []).push({});
+        }
+      } catch (error) {
+        console.error("AdSense error for slot", slot, ":", error);
+      }
+    };
+    if (document.readyState === "complete") {
+      setTimeout(loadAd, 100);
+    } else {
+      window.addEventListener(
+        "load",
+        () => {
+          setTimeout(loadAd, 100);
+        },
+        { once: true }
+      );
+    }
+  }, [adsMode, slot]);
+  if (adsMode === "NONE") {
+    return null;
+  }
+  const clientId = adClient || process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID || "";
+  if (adsMode === "SHOW_PLACEHOLDER") {
+    if (adType === "leaderboard") {
+      return /* @__PURE__ */ jsxRuntime.jsxs(jsxRuntime.Fragment, { children: [
+        /* @__PURE__ */ jsxRuntime.jsx("div", { className: `hidden md:flex justify-center ${className}`, children: /* @__PURE__ */ jsxRuntime.jsxs(
+          "div",
+          {
+            className: "bg-blue-500 border-2 border-blue-300 p-4 text-white text-center font-medium rounded-lg",
+            style: { width: 728, height: 90, minHeight: "80px" },
+            children: [
+              /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-sm", children: "\u{1F4FA} Ad Placeholder" }),
+              /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-xs", children: "leaderboard (desktop)" }),
+              /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "text-xs", children: [
+                "Slot: ",
+                slot
+              ] }),
+              /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-xs", children: "728x90" })
+            ]
+          }
+        ) }),
+        /* @__PURE__ */ jsxRuntime.jsx("div", { className: `flex md:hidden justify-center ${className}`, children: /* @__PURE__ */ jsxRuntime.jsxs(
+          "div",
+          {
+            className: "bg-blue-500 border-2 border-blue-300 p-4 text-white text-center font-medium rounded-lg",
+            style: { width: 320, height: 50, minHeight: "80px" },
+            children: [
+              /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-sm", children: "\u{1F4FA} Ad Placeholder" }),
+              /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-xs", children: "mobile-banner" }),
+              /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "text-xs", children: [
+                "Slot: ",
+                slot
+              ] }),
+              /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-xs", children: "320x50" })
+            ]
+          }
+        ) })
+      ] });
+    }
+    let devWidth = 300;
+    let devHeight = 250;
+    if (adType === "sidebar") {
+      devWidth = 300;
+      devHeight = 600;
+    } else if (adType === "mobile-banner") {
+      devWidth = 320;
+      devHeight = 50;
+    } else if (adType === "mobile-large") {
+      devWidth = 320;
+      devHeight = 100;
+    }
+    return /* @__PURE__ */ jsxRuntime.jsx("div", { className: `flex justify-center ${className}`, children: /* @__PURE__ */ jsxRuntime.jsxs(
+      "div",
+      {
+        className: "bg-blue-500 border-2 border-blue-300 p-4 text-white text-center font-medium rounded-lg max-w-full",
+        style: {
+          width: Math.min(devWidth, 300),
+          height: devHeight,
+          minHeight: "80px"
+        },
+        children: [
+          /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-sm", children: "\u{1F4FA} Ad Placeholder" }),
+          /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-xs", children: adType }),
+          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "text-xs", children: [
+            "Slot: ",
+            slot
+          ] }),
+          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "text-xs", children: [
+            Math.min(devWidth, 300),
+            "x",
+            devHeight
+          ] }),
+          /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-xs mt-1", children: "Set ADS_MODE=SHOW_ADS for real ads" })
+        ]
+      }
+    ) });
+  }
+  if (adType === "leaderboard") {
+    return /* @__PURE__ */ jsxRuntime.jsxs(
+      "div",
+      {
+        className: `ad-container ${className}`,
+        style: { display: "inline-block", width: "100%", minWidth: "320px" },
+        children: [
+          /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-xs text-slate-500 mb-1 text-center", children: "Advertisement" }),
+          /* @__PURE__ */ jsxRuntime.jsx(
+            "ins",
+            {
+              ref: adRef,
+              className: "adsbygoogle",
+              style: { display: "block", width: "100%" },
+              "data-ad-client": clientId,
+              "data-ad-slot": slot,
+              "data-ad-format": "auto",
+              "data-full-width-responsive": responsive ? "true" : "false"
+            }
+          )
+        ]
+      }
+    );
+  }
+  return /* @__PURE__ */ jsxRuntime.jsxs(
+    "div",
+    {
+      className: `ad-container ${className}`,
+      style: { display: "inline-block", width: "100%", minWidth: "300px" },
+      children: [
+        /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-xs text-slate-500 mb-1 text-center", children: "Advertisement" }),
+        /* @__PURE__ */ jsxRuntime.jsx(
+          "ins",
+          {
+            ref: adRef,
+            className: "adsbygoogle",
+            style: { display: "block", width: "100%" },
+            "data-ad-client": clientId,
+            "data-ad-slot": slot,
+            "data-ad-format": "auto",
+            "data-full-width-responsive": responsive ? "true" : "false"
+          }
+        )
+      ]
+    }
+  );
+}
+
+// src/ads/ad-slots.ts
+function createAdSlots(slots) {
+  return {
+    slots,
+    getAdSlotId(slotName) {
+      const id = slots[slotName];
+      if (!id) {
+        console.warn(`Ad slot "${slotName}" not found in registry`);
+        return "";
+      }
+      return id;
+    },
+    hasSlot(slotName) {
+      return slotName in slots;
+    },
+    getAllSlots() {
+      return { ...slots };
+    }
+  };
+}
+var defaultAdSlots = createAdSlots({
+  "homepage-banner": "1234567890",
+  "homepage-mid-content": "2345678901",
+  "sidebar-ad": "3456789012",
+  "article-content": "4567890123",
+  "article-end": "5678901234"
+});
+function getAdSlotId(slotName, slots = defaultAdSlots.getAllSlots()) {
+  return slots[slotName] || "";
+}
+
+exports.AdUnit = AdUnit;
+exports.ConstellationBackground = ConstellationBackground;
+exports.ContactModal = ContactModal;
+exports.ContentBlock = ContentBlock;
+exports.FadeIn = FadeIn;
+exports.FlipNumber = FlipNumber;
+exports.FloatingStars = FloatingStars;
+exports.InContentAd = InContentAd;
+exports.KeyPoints = KeyPoints;
+exports.Mdx = Mdx;
+exports.NewsletterForm = NewsletterForm;
+exports.NewsletterService = NewsletterService;
+exports.SuccessMessage = SuccessMessage;
+exports.ThemeProvider = ThemeProvider;
+exports.XEmbed = XEmbed;
+exports.YouTubeEmbed = YouTubeEmbed;
+exports.closeConnection = closeConnection;
+exports.cn = cn;
+exports.connectToDatabase = connectToDatabase;
+exports.createAdSlots = createAdSlots;
+exports.createEmailConfig = createEmailConfig;
+exports.createMongoDBConnection = createMongoDBConnection;
+exports.createNewsletterService = createNewsletterService;
+exports.defaultAdSlots = defaultAdSlots;
+exports.defaultMdxComponents = defaultMdxComponents;
+exports.formatDate = formatDate;
+exports.formatDateShort = formatDateShort;
+exports.getAdSlotId = getAdSlotId;
+exports.getEmailConfig = getEmailConfig;
+exports.getRelativeTime = getRelativeTime;
+exports.handleSmoothScroll = handleSmoothScroll;
+exports.scrollToTop = scrollToTop;
+exports.sendContactEmail = sendContactEmail;
+exports.useAnalytics = useAnalytics;
+exports.useInView = useInView;
+//# sourceMappingURL=index.js.map
+//# sourceMappingURL=index.js.map
