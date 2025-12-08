@@ -660,7 +660,16 @@ function ContactModal({
   title = "Contact Us",
   description = "Send us a message and we'll get back to you soon.",
   onSuccess,
-  onError
+  onError,
+  className,
+  overlayClassName,
+  buttonClassName,
+  inputClassName,
+  textareaClassName,
+  labelClassName,
+  titleClassName,
+  descriptionClassName,
+  iconColor = "#00E0FF"
 }) {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
@@ -704,13 +713,25 @@ function ContactModal({
   return /* @__PURE__ */ jsx(
     "div",
     {
-      className: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm",
+      className: overlayClassName || "fixed inset-0 z-50 flex items-center justify-center p-4",
       onClick: () => handleOpenChange(false),
+      style: {
+        backgroundColor: overlayClassName ? "rgba(0, 0, 0, 0.8)" : "rgba(0, 0, 0, 0.8)",
+        backdropFilter: "blur(8px)"
+      },
       children: /* @__PURE__ */ jsx(
         "div",
         {
-          className: "bg-slate-900/95 border border-slate-700 rounded-2xl p-6 max-w-md w-full",
+          className: className || "border border-slate-700 rounded-2xl p-6 max-w-md w-full",
           onClick: (e) => e.stopPropagation(),
+          style: {
+            backgroundColor: "rgb(9, 9, 11)",
+            borderColor: "rgb(63, 63, 70)",
+            maxWidth: "28rem",
+            width: "100%",
+            borderRadius: "1rem",
+            padding: "1.5rem"
+          },
           children: showSuccess ? /* @__PURE__ */ jsx(
             SuccessMessage,
             {
@@ -719,11 +740,12 @@ function ContactModal({
             }
           ) : /* @__PURE__ */ jsxs(Fragment, { children: [
             /* @__PURE__ */ jsxs("div", { className: "mb-6", children: [
-              /* @__PURE__ */ jsxs("h2", { className: "text-2xl font-bold text-white flex items-center gap-2 mb-2", children: [
+              /* @__PURE__ */ jsxs("h2", { className: titleClassName || "text-2xl font-bold text-white flex items-center gap-2 mb-2", children: [
                 /* @__PURE__ */ jsx(
                   "svg",
                   {
-                    className: "h-6 w-6 text-[#00E0FF]",
+                    className: "h-6 w-6",
+                    style: { color: iconColor },
                     fill: "none",
                     viewBox: "0 0 24 24",
                     stroke: "currentColor",
@@ -740,11 +762,11 @@ function ContactModal({
                 ),
                 title
               ] }),
-              /* @__PURE__ */ jsx("p", { className: "text-slate-300", children: description })
+              /* @__PURE__ */ jsx("p", { className: descriptionClassName || "text-slate-300", children: description })
             ] }),
             /* @__PURE__ */ jsxs("form", { onSubmit: handleSubmit, className: "space-y-6", children: [
               /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
-                /* @__PURE__ */ jsx("label", { htmlFor: "email", className: "text-slate-200 block text-sm font-medium", children: "Email Address" }),
+                /* @__PURE__ */ jsx("label", { htmlFor: "email", className: labelClassName || "text-slate-200 block text-sm font-medium", children: "Email Address" }),
                 /* @__PURE__ */ jsx(
                   "input",
                   {
@@ -754,12 +776,22 @@ function ContactModal({
                     value: email,
                     onChange: (e) => setEmail(e.target.value),
                     required: true,
-                    className: "w-full bg-slate-800/50 border border-slate-700 text-white placeholder:text-slate-400 focus:border-[#00E0FF] focus:ring-[#00E0FF]/20 focus:ring-2 outline-none rounded-lg px-4 py-2"
+                    className: inputClassName || "w-full bg-slate-800/50 border border-slate-700 text-white placeholder:text-slate-400 focus:border-[#00E0FF] focus:ring-[#00E0FF]/20 focus:ring-2 outline-none rounded-lg px-4 py-2",
+                    style: {
+                      width: "100%",
+                      backgroundColor: "rgb(24, 24, 27)",
+                      borderColor: "rgb(63, 63, 70)",
+                      color: "white",
+                      borderRadius: "0.5rem",
+                      padding: "0.5rem 1rem",
+                      outline: "none",
+                      border: "1px solid rgb(63, 63, 70)"
+                    }
                   }
                 )
               ] }),
               /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
-                /* @__PURE__ */ jsx("label", { htmlFor: "message", className: "text-slate-200 block text-sm font-medium", children: "Message" }),
+                /* @__PURE__ */ jsx("label", { htmlFor: "message", className: labelClassName || "text-slate-200 block text-sm font-medium", children: "Message" }),
                 /* @__PURE__ */ jsx(
                   "textarea",
                   {
@@ -769,7 +801,18 @@ function ContactModal({
                     onChange: (e) => setMessage(e.target.value),
                     required: true,
                     rows: 5,
-                    className: "w-full bg-slate-800/50 border border-slate-700 text-white placeholder:text-slate-400 focus:border-[#00E0FF] focus:ring-[#00E0FF]/20 focus:ring-2 outline-none resize-none rounded-lg px-4 py-2"
+                    className: textareaClassName || "w-full bg-slate-800/50 border border-slate-700 text-white placeholder:text-slate-400 focus:border-[#00E0FF] focus:ring-[#00E0FF]/20 focus:ring-2 outline-none resize-none rounded-lg px-4 py-2",
+                    style: {
+                      width: "100%",
+                      backgroundColor: "rgb(24, 24, 27)",
+                      borderColor: "rgb(63, 63, 70)",
+                      color: "white",
+                      borderRadius: "0.5rem",
+                      padding: "0.5rem 1rem",
+                      outline: "none",
+                      border: "1px solid rgb(63, 63, 70)",
+                      resize: "none"
+                    }
                   }
                 )
               ] }),
@@ -788,7 +831,21 @@ function ContactModal({
                   {
                     type: "submit",
                     disabled: isSubmitting,
-                    className: "bg-[#00E0FF] hover:bg-[#00E0FF]/90 text-slate-950 font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 px-6 py-2 flex items-center gap-2",
+                    className: buttonClassName || "bg-[#00E0FF] hover:bg-[#00E0FF]/90 text-slate-950 font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 px-6 py-2 flex items-center gap-2",
+                    style: {
+                      backgroundColor: iconColor || "#00E0FF",
+                      color: "white",
+                      fontWeight: "600",
+                      borderRadius: "0.75rem",
+                      padding: "0.5rem 1.5rem",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      border: "none",
+                      cursor: isSubmitting ? "not-allowed" : "pointer",
+                      opacity: isSubmitting ? 0.5 : 1,
+                      transition: "all 0.2s"
+                    },
                     children: isSubmitting ? "Sending..." : /* @__PURE__ */ jsxs(Fragment, { children: [
                       "Send Message",
                       /* @__PURE__ */ jsx(

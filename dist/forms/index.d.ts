@@ -14,7 +14,7 @@ declare function NewsletterForm({ apiEndpoint, title, description, buttonText, s
  * Note: This component uses basic HTML elements.
  * For production, replace with your UI library's Dialog/Modal component
  */
-declare function ContactModal({ open, onOpenChange, apiEndpoint, title, description, onSuccess, onError, }: ContactModalProps): react_jsx_runtime.JSX.Element | null;
+declare function ContactModal({ open, onOpenChange, apiEndpoint, title, description, onSuccess, onError, className, overlayClassName, buttonClassName, inputClassName, textareaClassName, labelClassName, titleClassName, descriptionClassName, iconColor, }: ContactModalProps): react_jsx_runtime.JSX.Element | null;
 
 /**
  * Success message component for forms

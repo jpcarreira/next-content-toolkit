@@ -18,6 +18,15 @@ export interface ContactModalProps {
   description?: string;
   onSuccess?: (data: { email: string; message: string }) => void;
   onError?: (error: Error) => void;
+  className?: string;
+  overlayClassName?: string;
+  buttonClassName?: string;
+  inputClassName?: string;
+  textareaClassName?: string;
+  labelClassName?: string;
+  titleClassName?: string;
+  descriptionClassName?: string;
+  iconColor?: string;
 }
 
 export interface SuccessMessageProps {
