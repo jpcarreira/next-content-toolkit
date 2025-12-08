@@ -23,12 +23,17 @@ export async function connectToDatabase(
   const MONGODB_URI = options.uri || process.env.MONGODB_URI;
   const MONGODB_DB = options.dbName || process.env.MONGODB_DB || 'database';
 
+  console.log('[MongoDB] Connection requested with dbName:', options.dbName || 'not specified');
+  console.log('[MongoDB] MONGODB_DB env:', process.env.MONGODB_DB || 'not set');
+  console.log('[MongoDB] Using database:', MONGODB_DB);
+
   if (!MONGODB_URI) {
     throw new Error('Please define the MONGODB_URI environment variable');
   }
 
   // Check if we have a cached connection
   if (cachedClient && cachedDb) {
+    console.log('[MongoDB] Using cached connection to database:', cachedDb.databaseName);
     // Verify the connection is still alive
     try {
       await cachedClient.db().admin().ping();
@@ -42,7 +47,7 @@ export async function connectToDatabase(
   }
 
   // Create new connection
-  console.log('Connecting to MongoDB...');
+  console.log('[MongoDB] Connecting to MongoDB...');
   const client = new MongoClient(MONGODB_URI, {
     serverSelectionTimeoutMS: options.serverSelectionTimeoutMS || 5000,
     family: options.family || 4,
@@ -56,7 +61,7 @@ export async function connectToDatabase(
     cachedClient = client;
     cachedDb = db;
 
-    console.log('Successfully connected to MongoDB');
+    console.log('[MongoDB] Successfully connected to database:', db.databaseName);
     return { client, db };
   } catch (error) {
     console.error('Failed to connect to MongoDB:', error);
