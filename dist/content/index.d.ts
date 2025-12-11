@@ -1,7 +1,7 @@
 import * as react_jsx_runtime from 'react/jsx-runtime';
 import { ComponentPropsWithoutRef, ReactNode } from 'react';
-import { XEmbedProps, YouTubeEmbedProps } from './types';
-export { MdxProps } from './types';
+export { XEmbed, YouTubeEmbed } from '../media/index';
+export { MdxProps, XEmbedProps, YouTubeEmbedProps } from './types';
 
 /**
  * Default MDX components with styled typography and elements
@@ -36,25 +36,6 @@ declare function Mdx({ code, components, }: {
     components?: Record<string, React.ComponentType<any>>;
 }): react_jsx_runtime.JSX.Element;
 
-declare global {
-    interface Window {
-        twttr?: {
-            widgets: {
-                load: (element?: HTMLElement) => void;
-            };
-        };
-    }
-}
-/**
- * Embed X (Twitter) posts with lazy loading
- */
-declare function XEmbed({ id, theme, conversation, align, }: XEmbedProps): react_jsx_runtime.JSX.Element;
-
-/**
- * Embed YouTube videos with lazy loading
- */
-declare function YouTubeEmbed({ videoId, title, startTime, aspectRatio, }: YouTubeEmbedProps): react_jsx_runtime.JSX.Element;
-
 interface ContentBlockProps {
     title: string;
     children: ReactNode;
@@ -84,4 +65,4 @@ interface InContentAdProps {
 }
 declare function InContentAd({ children }: InContentAdProps): react_jsx_runtime.JSX.Element | null;
 
-export { ContentBlock, type ContentBlockProps, InContentAd, type InContentAdProps, KeyPoints, type KeyPointsProps, Mdx, XEmbed, XEmbedProps, YouTubeEmbed, YouTubeEmbedProps, Mdx as default, defaultMdxComponents };
+export { ContentBlock, type ContentBlockProps, InContentAd, type InContentAdProps, KeyPoints, type KeyPointsProps, Mdx, Mdx as default, defaultMdxComponents };

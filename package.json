@@ -44,6 +44,11 @@
       "types": "./dist/ads/index.d.ts",
       "import": "./dist/ads/index.mjs",
       "require": "./dist/ads/index.js"
+    },
+    "./media": {
+      "types": "./dist/media/index.d.ts",
+      "import": "./dist/media/index.mjs",
+      "require": "./dist/media/index.js"
     }
   },
   "files": [
