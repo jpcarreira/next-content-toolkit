@@ -18,6 +18,6 @@ declare function XEmbed({ id, theme, conversation, align, }: XEmbedProps): react
 /**
  * Embed YouTube videos with lazy loading
  */
-declare function YouTubeEmbed({ videoId, title, startTime, aspectRatio, }: YouTubeEmbedProps): react_jsx_runtime.JSX.Element;
+declare function YouTubeEmbed({ videoId, title, startTime, endTime, aspectRatio, }: YouTubeEmbedProps): react_jsx_runtime.JSX.Element;
 
 export { XEmbed, XEmbedProps, YouTubeEmbed, YouTubeEmbedProps };

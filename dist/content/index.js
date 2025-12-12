@@ -245,6 +245,7 @@ function YouTubeEmbed({
   videoId,
   title = "YouTube video",
   startTime,
+  endTime,
   aspectRatio = "16:9"
 }) {
   const containerRef = react.useRef(null);
@@ -271,7 +272,8 @@ function YouTubeEmbed({
     const params = new URLSearchParams({
       rel: "0",
       modestbranding: "1",
-      ...startTime && { start: startTime.toString() }
+      ...startTime && { start: startTime.toString() },
+      ...endTime && { end: endTime.toString() }
     });
     return `${baseUrl}?${params.toString()}`;
   };

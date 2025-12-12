@@ -10,6 +10,7 @@ export function YouTubeEmbed({
   videoId,
   title = 'YouTube video',
   startTime,
+  endTime,
   aspectRatio = '16:9',
 }: YouTubeEmbedProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -43,6 +44,7 @@ export function YouTubeEmbed({
       rel: '0',
       modestbranding: '1',
       ...(startTime && { start: startTime.toString() }),
+      ...(endTime && { end: endTime.toString() }),
     });
     return `${baseUrl}?${params.toString()}`;
   };

@@ -11,6 +11,7 @@ interface YouTubeEmbedProps {
     videoId: string;
     title?: string;
     startTime?: number;
+    endTime?: number;
     aspectRatio?: '16:9' | '4:3';
 }
 
